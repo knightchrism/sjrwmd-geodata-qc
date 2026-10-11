@@ -1,0 +1,81 @@
+
+{
+  "dataset": "SJRWMD Active Groundwater Monitoring Network",
+  "version": "2.0",
+  "description": "Independent demonstration QA/QC rules, not official SJRWMD acceptance standards.",
+  "rules": [
+    {
+      "id": "QC001",
+      "name": "Missing station identifier",
+      "field": "STN_ID",
+      "check": "required",
+      "severity": "critical",
+      "interpretation": "A station record lacks its identifier.",
+      "basis": "project_integrity_rule"
+    },
+    {
+      "id": "QC002",
+      "name": "Repeated station identifier",
+      "field": "STN_ID",
+      "check": "unique",
+      "severity": "critical",
+      "interpretation": "Multiple records share one station identifier. Investigate whether the service represents unique stations or multiple events.",
+      "basis": "project_integrity_rule"
+    },
+    {
+      "id": "QC003",
+      "name": "Missing or empty geometry",
+      "field": "geometry",
+      "check": "geometry_present",
+      "severity": "critical",
+      "interpretation": "The feature cannot be located using its geometry.",
+      "basis": "project_spatial_rule"
+    },
+    {
+      "id": "QC004",
+      "name": "Invalid geometry",
+      "field": "geometry",
+      "check": "geometry_valid",
+      "severity": "critical",
+      "interpretation": "The geometry fails its structural validity test.",
+      "basis": "project_spatial_rule"
+    },
+    {
+      "id": "QC005",
+      "name": "Missing optional UTM attributes",
+      "fields": ["UTM_X", "UTM_Y"],
+      "check": "missing_any",
+      "severity": "info",
+      "interpretation": "One or both UTM attributes are absent. This does not establish an incorrect station location.",
+      "basis": "optional_attribute_review"
+    },
+    {
+      "id": "QC006",
+      "name": "Missing drilling depth",
+      "field": "WELL_DRL_DPTH_QTY",
+      "check": "missing",
+      "severity": "info",
+      "interpretation": "Drilling depth is unrecorded. Determine whether this field applies to the station.",
+      "basis": "conditional_attribute_review"
+    },
+    {
+      "id": "QC007",
+      "name": "Missing completion date",
+      "field": "CMPLT_DT",
+      "check": "missing",
+      "severity": "info",
+      "interpretation": "Completion date is unrecorded. Review applicability and source-system history.",
+      "basis": "conditional_attribute_review"
+    },
+    {
+      "id": "QC008",
+      "name": "Missing county",
+      "field": "COUNTY",
+      "check": "missing",
+      "severity": "warning",
+      "interpretation": "County is absent. Compare the station location with an authoritative county boundary.",
+      "basis": "project_location_review"
+    }
+  ]
+}
+

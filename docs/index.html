@@ -1,0 +1,884 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SJRWMD | GeoData Quality Inspector</title>
+
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: #193349;
+            background: #eef3f7;
+        }
+
+        header {
+            padding: 15px 22px;
+            background: #12334d;
+            color: white;
+        }
+
+        header h1 { margin: 0; font-size: 23px; }
+        header p { margin: 6px 0 0; font-size: 13px; color: #c8dce9; }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            padding: 14px;
+        }
+
+        .metric {
+            background: white;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #d9e3eb;
+        }
+
+        .metric .label { color: #607487; font-size: 12px; }
+        .metric .number {
+            margin-top: 6px;
+            font-size: 27px;
+            font-weight: bold;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 370px minmax(0, 1fr);
+            gap: 12px;
+            padding: 0 14px 14px;
+        }
+
+        .panel {
+            background: white;
+            border: 1px solid #d9e3eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .panel h2 {
+            font-size: 15px;
+            margin: 0;
+            padding: 14px;
+            border-bottom: 1px solid #e3eaf0;
+        }
+
+        .filters {
+            padding: 12px;
+            display: grid;
+            gap: 10px;
+        }
+
+        input, select, button {
+            font: inherit;
+            padding: 9px;
+            border: 1px solid #c7d4de;
+            border-radius: 5px;
+            width: 100%;
+        }
+
+        button {
+            background: #165784;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover { background: #0d3c61; }
+        button:disabled { opacity: 0.5; cursor: default; }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #edf3f8;
+            font-size: 12px;
+        }
+
+        #issueList {
+            height: 390px;
+            overflow-y: auto;
+        }
+
+        .issue {
+            padding: 11px 13px;
+            border-bottom: 1px solid #e8edf2;
+            cursor: pointer;
+        }
+
+        .issue:hover { background: #f1f7fc; }
+        .issue.active { background: #e0f0fc; }
+
+        .issue strong {
+            display: block;
+            font-size: 13px;
+        }
+
+        .issue small {
+            display: block;
+            color: #607487;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .severity {
+            display: inline-block;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 6px;
+        }
+
+        .critical { background: #ffe2df; color: #a72a22; }
+        .warning { background: #fff0cf; color: #8a5800; }
+        .info { background: #e1f0fc; color: #135b92; }
+
+        #map {
+            width: 100%;
+            height: 440px;
+        }
+
+        #inspector {
+            padding: 15px;
+            font-size: 13px;
+            line-height: 1.7;
+            min-height: 150px;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 145px 1fr;
+            gap: 5px 12px;
+        }
+
+        .detail-label { color: #62788b; }
+        .detail-value { overflow-wrap: anywhere; }
+
+        .note {
+            background: #f3f6f9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 12px;
+        }
+
+        .map-legend {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            line-height: 1.8;
+        }
+
+        .dot {
+            display: inline-block;
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        footer {
+            padding: 12px 16px 22px;
+            font-size: 12px;
+            color: #576b7e;
+        }
+
+        @media (max-width: 850px) {
+            .workspace { grid-template-columns: 1fr; }
+            .summary { grid-template-columns: repeat(2, 1fr); }
+            #issueList { height: 280px; }
+            #map { height: 380px; }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>SJRWMD GeoData Quality Inspector</h1>
+    <p>Python-driven GIS quality assurance | Monitoring network demonstration</p>
+</header>
+
+<section class="summary">
+    <div class="metric">
+        <div class="label">Stations inspected</div>
+        <div class="number" id="stationCount">—</div>
+    </div>
+
+    <div class="metric">
+        <div class="label">QC rules evaluated</div>
+        <div class="number" id="ruleCount">—</div>
+    </div>
+
+    <div class="metric">
+        <div class="label">Review findings</div>
+        <div class="number" id="issueCount">—</div>
+    </div>
+
+    <div class="metric">
+        <div class="label">Flagged stations</div>
+        <div class="number" id="flaggedCount">—</div>
+    </div>
+</section>
+
+<section class="workspace">
+
+    <div class="panel">
+        <h2>QA/QC Issue Explorer</h2>
+
+        <div class="filters">
+            <label>
+                QC Rule
+                <select id="ruleFilter">
+                    <option value="">All rules</option>
+                </select>
+            </label>
+
+            <label>
+                Severity
+                <select id="severityFilter">
+                    <option value="">All severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="warning">Warning</option>
+                    <option value="info">Informational</option>
+                </select>
+            </label>
+
+            <label>
+                Station search
+                <input type="text" id="stationSearch"
+                       placeholder="Station ID, name or county">
+            </label>
+
+            <button id="resetButton">Reset filters</button>
+            <button id="downloadButton" disabled>Export filtered CSV</button>
+        </div>
+
+        <div class="results-header">
+            <strong id="filteredCount">Loading...</strong>
+            <span>Click a finding to inspect</span>
+        </div>
+
+        <div id="issueList"></div>
+    </div>
+
+    <div>
+        <div class="panel">
+            <h2>Monitoring Station Map</h2>
+            <div id="map"></div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+            <h2>Station Quality Inspector</h2>
+            <div id="inspector">
+                Select a QA/QC finding to inspect the original data.
+            </div>
+        </div>
+    </div>
+
+</section>
+
+<footer>
+    Independent demonstration using publicly available groundwater monitoring
+    data. Findings are review flags, not confirmed SJRWMD data errors.
+    Background map © OpenStreetMap contributors.
+    <span id="runTime"></span>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+"use strict";
+
+// =====================================================
+// 1. INITIALIZE MAP
+// =====================================================
+
+const map = L.map("map").setView([29.5, -81.5], 8);
+
+L.tileLayer(
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+        maxZoom: 19,
+        attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    }
+).addTo(map);
+
+const mapLayer = L.layerGroup().addTo(map);
+
+const legend = L.control({ position: "bottomright" });
+
+legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "map-legend");
+    div.innerHTML = `
+        <strong>QA/QC findings</strong><br>
+        <span class="dot" style="background:#d83b32"></span>Critical<br>
+        <span class="dot" style="background:#e3a12a"></span>Warning<br>
+        <span class="dot" style="background:#287dba"></span>Informational<br>
+        <span class="dot" style="background:#8b9baa"></span>No active finding
+    `;
+    return div;
+};
+
+legend.addTo(map);
+
+
+// =====================================================
+// 2. APPLICATION STATE
+// =====================================================
+
+let qcData = null;
+let stationData = null;
+
+let filteredIssues = [];
+let selectedIssue = null;
+
+const stationMarkers = new Map();
+const stationFeatures = new Map();
+
+
+// =====================================================
+// 3. HELPER FUNCTIONS
+// =====================================================
+
+function byId(id) {
+    return document.getElementById(id);
+}
+
+function asText(value) {
+    return value === null || value === undefined || value === ""
+        ? "Not recorded"
+        : String(value);
+}
+
+function keyFor(value) {
+    return value === null || value === undefined
+        ? ""
+        : String(value);
+}
+
+function severityColor(severity) {
+    if (severity === "critical") return "#d83b32";
+    if (severity === "warning") return "#e3a12a";
+    if (severity === "info") return "#287dba";
+    return "#8b9baa";
+}
+
+function highestSeverity(issues) {
+    if (issues.some(i => i.severity === "critical")) {
+        return "critical";
+    }
+    if (issues.some(i => i.severity === "warning")) {
+        return "warning";
+    }
+    if (issues.some(i => i.severity === "info")) {
+        return "info";
+    }
+    return null;
+}
+
+function addDetail(container, label, value) {
+    const labelEl = document.createElement("div");
+    labelEl.className = "detail-label";
+    labelEl.textContent = label;
+
+    const valueEl = document.createElement("div");
+    valueEl.className = "detail-value";
+    valueEl.textContent = asText(value);
+
+    container.appendChild(labelEl);
+    container.appendChild(valueEl);
+}
+
+
+// =====================================================
+// 4. LOAD PYTHON-GENERATED DATA
+// =====================================================
+
+Promise.all([
+    fetch("data/qc_results.json").then(response => {
+        if (!response.ok) {
+            throw new Error("QC JSON: HTTP " + response.status);
+        }
+        return response.json();
+    }),
+
+    fetch("data/sjrwmd_stations.geojson").then(response => {
+        if (!response.ok) {
+            throw new Error("Station GeoJSON: HTTP " + response.status);
+        }
+        return response.json();
+    })
+])
+.then(([qc, stations]) => {
+
+    qcData = qc;
+    stationData = stations;
+
+    byId("stationCount").textContent =
+        qc.total_records.toLocaleString();
+
+    byId("ruleCount").textContent =
+        qc.rules_checked.toLocaleString();
+
+    byId("issueCount").textContent =
+        qc.total_issues.toLocaleString();
+
+    byId("flaggedCount").textContent =
+        qc.flagged_station_count.toLocaleString();
+
+    byId("runTime").textContent =
+        " | QC run: " + new Date(
+            qc.run_timestamp_utc
+        ).toLocaleString();
+
+    populateRules();
+    indexStations();
+    applyFilters();
+
+    byId("downloadButton").disabled = false;
+
+    console.log("QA/QC report loaded:", qc);
+    console.log("Station features loaded:", stations.features.length);
+
+})
+.catch(error => {
+    console.error(error);
+    byId("filteredCount").textContent = "Loading failed";
+    byId("issueList").textContent =
+        "Could not load dashboard files. Run the local HTTP server from the docs folder.";
+});
+
+
+// =====================================================
+// 5. POPULATE QC RULE FILTER
+// =====================================================
+
+function populateRules() {
+    const select = byId("ruleFilter");
+
+    for (const rule of qcData.rule_results) {
+        const option = document.createElement("option");
+
+        option.value = rule.rule_id;
+        option.textContent =
+            `${rule.rule_id} — ${rule.rule_name} (${rule.failed_records})`;
+
+        select.appendChild(option);
+    }
+}
+
+
+// =====================================================
+// 6. INDEX ORIGINAL MONITORING STATIONS
+// =====================================================
+
+function indexStations() {
+    stationFeatures.clear();
+
+    for (const feature of stationData.features) {
+        const props = feature.properties || {};
+        const id = keyFor(props.OBJECTID);
+
+        if (id) stationFeatures.set(id, feature);
+    }
+}
+
+
+// =====================================================
+// 7. FILTER ISSUE RECORDS
+// =====================================================
+
+function applyFilters() {
+    if (!qcData) return;
+
+    const rule = byId("ruleFilter").value;
+    const severity = byId("severityFilter").value;
+    const search = byId("stationSearch").value
+        .trim().toLowerCase();
+
+    filteredIssues = qcData.issues.filter(issue => {
+
+        if (rule && issue.rule_id !== rule) return false;
+
+        if (severity && issue.severity !== severity) {
+            return false;
+        }
+
+        const searchable = [
+            issue.station_id,
+            issue.station_name,
+            issue.county
+        ].map(asText).join(" ").toLowerCase();
+
+        if (search && !searchable.includes(search)) {
+            return false;
+        }
+
+        return true;
+    });
+
+    byId("filteredCount").textContent =
+        filteredIssues.length.toLocaleString() + " matching findings";
+
+    renderIssueList();
+    renderMap();
+}
+
+
+// =====================================================
+// 8. DISPLAY ISSUE RECORDS
+// =====================================================
+
+function renderIssueList() {
+    const container = byId("issueList");
+    container.replaceChildren();
+
+    if (filteredIssues.length === 0) {
+        container.textContent = "No findings match these filters.";
+        return;
+    }
+
+    // Render the first 250 rows to keep the UI responsive.
+    // All matching rows remain available for CSV export.
+    const visible = filteredIssues.slice(0, 250);
+
+    visible.forEach(issue => {
+        const item = document.createElement("div");
+        item.className = "issue";
+
+        if (selectedIssue === issue) {
+            item.classList.add("active");
+        }
+
+        const title = document.createElement("strong");
+        title.textContent =
+            asText(issue.station_name) +
+            " (" + asText(issue.station_id) + ")";
+
+        const description = document.createElement("small");
+        description.textContent =
+            issue.rule_id + " — " + issue.rule_name;
+
+        const badge = document.createElement("span");
+        badge.className =
+            "severity " + issue.severity;
+
+        badge.textContent = issue.severity.toUpperCase();
+
+        item.appendChild(title);
+        item.appendChild(description);
+        item.appendChild(badge);
+
+        item.addEventListener("click", () => {
+            selectIssue(issue);
+        });
+
+        container.appendChild(item);
+    });
+
+    if (filteredIssues.length > visible.length) {
+        const note = document.createElement("div");
+        note.className = "issue";
+        note.textContent =
+            `Showing first ${visible.length} of ` +
+            `${filteredIssues.length} results. Narrow the filters to inspect more.`;
+        container.appendChild(note);
+    }
+}
+
+
+// =====================================================
+// 9. DISPLAY MONITORING STATIONS ON MAP
+// =====================================================
+
+function renderMap() {
+    if (!stationData) return;
+
+    mapLayer.clearLayers();
+    stationMarkers.clear();
+
+    const issuesByStation = new Map();
+
+    for (const issue of filteredIssues) {
+        const id = keyFor(issue.objectid);
+
+        if (!issuesByStation.has(id)) {
+            issuesByStation.set(id, []);
+        }
+
+        issuesByStation.get(id).push(issue);
+    }
+
+    const bounds = [];
+
+    for (const feature of stationData.features) {
+        const coords = feature.geometry?.coordinates;
+        const id = keyFor(feature.properties?.OBJECTID);
+
+        if (
+            feature.geometry?.type !== "Point" ||
+            !Array.isArray(coords) ||
+            coords.length < 2 ||
+            !Number.isFinite(coords[0]) ||
+            !Number.isFinite(coords[1])
+        ) {
+            continue;
+        }
+
+        const lon = coords[0];
+        const lat = coords[1];
+        const stationIssues = issuesByStation.get(id) || [];
+
+        // When a filter is active, show matching stations only.
+        const filtersActive =
+            byId("ruleFilter").value ||
+            byId("severityFilter").value ||
+            byId("stationSearch").value.trim();
+
+        if (filtersActive && stationIssues.length === 0) {
+            continue;
+        }
+
+        const severity = highestSeverity(stationIssues);
+
+        const marker = L.circleMarker([lat, lon], {
+            radius: stationIssues.length ? 6 : 4,
+            color: "#ffffff",
+            weight: 1,
+            fillColor: severityColor(severity),
+            fillOpacity: 0.85
+        });
+
+        const props = feature.properties || {};
+
+        marker.bindTooltip(
+            asText(props.STN_NM) +
+            " | " + stationIssues.length + " matching findings"
+        );
+
+        marker.on("click", () => {
+            const issue = stationIssues[0];
+
+            if (issue) {
+                selectIssue(issue);
+            } else {
+                showStationWithoutIssue(props, lat, lon);
+            }
+        });
+
+        marker.addTo(mapLayer);
+        stationMarkers.set(id, marker);
+        bounds.push([lat, lon]);
+    }
+
+    if (bounds.length) {
+        map.fitBounds(bounds, {
+            padding: [25, 25],
+            maxZoom: 11
+        });
+    }
+}
+
+
+// =====================================================
+// 10. INSPECT SELECTED QC ISSUE
+// =====================================================
+
+function selectIssue(issue) {
+    selectedIssue = issue;
+
+    renderIssueList();
+
+    const inspector = byId("inspector");
+    inspector.replaceChildren();
+
+    const heading = document.createElement("h3");
+    heading.textContent =
+        asText(issue.station_name) + " — " + issue.rule_id;
+
+    inspector.appendChild(heading);
+
+    const details = document.createElement("div");
+    details.className = "detail-grid";
+
+    addDetail(details, "Station ID", issue.station_id);
+    addDetail(details, "OBJECTID", issue.objectid);
+    addDetail(details, "County", issue.county);
+    addDetail(details, "QC rule", issue.rule_name);
+    addDetail(details, "Severity", issue.severity);
+    addDetail(details, "Basis", issue.basis);
+    addDetail(details, "Review status", issue.review_status);
+    addDetail(details, "Missing fields", issue.missing_fields);
+    addDetail(details, "Original UTM X", issue.utm_x);
+    addDetail(details, "Original UTM Y", issue.utm_y);
+    addDetail(details, "Longitude", issue.longitude);
+    addDetail(details, "Latitude", issue.latitude);
+
+    inspector.appendChild(details);
+
+    const explanation = document.createElement("div");
+    explanation.className = "note";
+    explanation.textContent =
+        issue.interpretation || "No rule explanation available.";
+
+    inspector.appendChild(explanation);
+
+    const original = document.createElement("div");
+    original.className = "note";
+
+    const originalTitle = document.createElement("strong");
+    originalTitle.textContent = "Original values evaluated";
+    original.appendChild(originalTitle);
+
+    const values = issue.original_values || {};
+
+    for (const [field, value] of Object.entries(values)) {
+        const line = document.createElement("div");
+        line.textContent = field + ": " + asText(value);
+        original.appendChild(line);
+    }
+
+    inspector.appendChild(original);
+
+    // Zoom to the affected station when coordinates are available.
+    const marker = stationMarkers.get(keyFor(issue.objectid));
+
+    if (marker) {
+        map.setView(marker.getLatLng(), 15);
+        marker.openTooltip();
+    } else if (
+        Number.isFinite(Number(issue.latitude)) &&
+        Number.isFinite(Number(issue.longitude)) &&
+        issue.latitude !== null &&
+        issue.longitude !== null
+    ) {
+        map.setView(
+            [Number(issue.latitude), Number(issue.longitude)],
+            15
+        );
+    }
+}
+
+
+function showStationWithoutIssue(props, lat, lon) {
+    const inspector = byId("inspector");
+    inspector.replaceChildren();
+
+    const heading = document.createElement("h3");
+    heading.textContent = asText(props.STN_NM);
+    inspector.appendChild(heading);
+
+    const message = document.createElement("p");
+    message.textContent =
+        "This station has no findings under the current QC filters.";
+    inspector.appendChild(message);
+
+    const details = document.createElement("div");
+    details.className = "detail-grid";
+
+    addDetail(details, "Station ID", props.STN_ID);
+    addDetail(details, "County", props.COUNTY);
+    addDetail(details, "Longitude", lon);
+    addDetail(details, "Latitude", lat);
+
+    inspector.appendChild(details);
+}
+
+
+// =====================================================
+// 11. EXPORT FILTERED FINDINGS TO CSV
+// =====================================================
+
+function exportCSV() {
+    if (!qcData) return;
+
+    const columns = [
+        "rule_id", "rule_name", "severity",
+        "basis", "interpretation",
+        "station_id", "station_name", "objectid",
+        "county", "missing_fields",
+        "utm_x", "utm_y", "latitude", "longitude",
+        "review_status", "original_values"
+    ];
+
+    function csvCell(value) {
+        if (typeof value === "object" && value !== null) {
+            value = JSON.stringify(value);
+        }
+
+        const text = value == null ? "" : String(value);
+
+        // Quote and escape fields so commas and quotes are safe.
+        // Neutralize spreadsheet formula injection.
+        const safe = /^[\s]*[=+\-@\t\r]/.test(text)
+            ? "'" + text
+            : text;
+
+        return '"' + safe.replace(/"/g, '""') + '"';
+    }
+
+    const lines = [columns.join(",")];
+
+    for (const issue of filteredIssues) {
+        lines.push(
+            columns.map(column => csvCell(issue[column])).join(",")
+        );
+    }
+
+    const blob = new Blob(
+        [lines.join("\r\n")],
+        { type: "text/csv;charset=utf-8" }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "sjrwmd_filtered_qc_issues.csv";
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+}
+
+
+// =====================================================
+// 12. INTERACTIVE CONTROL EVENTS
+// =====================================================
+
+byId("ruleFilter").addEventListener("change", applyFilters);
+
+byId("severityFilter").addEventListener("change", applyFilters);
+
+byId("stationSearch").addEventListener("input", applyFilters);
+
+byId("downloadButton").addEventListener("click", exportCSV);
+
+byId("resetButton").addEventListener("click", () => {
+    byId("ruleFilter").value = "";
+    byId("severityFilter").value = "";
+    byId("stationSearch").value = "";
+
+    selectedIssue = null;
+    byId("inspector").textContent =
+        "Select a QA/QC finding to inspect the original data.";
+
+    applyFilters();
+});
+
+</script>
+</body>
+</html>
