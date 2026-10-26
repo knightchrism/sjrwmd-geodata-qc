@@ -1,11 +1,37 @@
 # SJRWMD GeoData Quality Inspector
 
-**Python-Based Geospatial Data Quality Assurance and Interactive GIS Dashboard**
+**Rule-driven QA/QC for public groundwater-station GIS data &mdash; findings you can filter, inspect and export, with the source data left untouched.**
+
+<p>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-00e5ff?style=flat-square"></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3-00e5ff?style=flat-square&logo=python&logoColor=white">
+  <img alt="GeoPandas" src="https://img.shields.io/badge/GeoPandas-Shapely-0b1220?style=flat-square">
+  <img alt="ArcGIS REST" src="https://img.shields.io/badge/ArcGIS-REST-0b1220?style=flat-square">
+  <img alt="Leaflet" src="https://img.shields.io/badge/Leaflet-dashboard-0b1220?style=flat-square&logo=leaflet">
+</p>
 
 An independent geospatial QA/QC demonstration using publicly available groundwater monitoring data from the St. Johns River Water Management District (SJRWMD).
 
-**[Launch Interactive Dashboard](https://knightchrism.github.io/sjrwmd-geodata-qc/)**
+**[Launch Interactive Dashboard &rarr;](https://knightchrism.github.io/sjrwmd-geodata-qc/)**
 
+## What it does
+
+- Pulls station records from SJRWMD's public ArcGIS REST Feature Service and preserves the download as-is.
+- Applies 8 configurable rules from `config/qc_rules.json` (identifiers, duplicates, geometry presence/validity, optional attributes).
+- Writes every finding to CSV/JSON as a reviewable audit trail &mdash; nothing in the source data is changed.
+- Ships a static Leaflet dashboard to filter by rule and severity, inspect original values and export findings.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  A[SJRWMD ArcGIS REST<br/>FeatureServer] --> B[download_stations.py<br/>raw copy preserved]
+  B --> C[inspect_data.py<br/>build_data_dictionary.py]
+  B --> D[run_qc.py<br/>config/qc_rules.json]
+  D --> E[(findings CSV / JSON)]
+  E --> F[docs/data<br/>qc_results.json · stations.geojson]
+  F --> G[docs/index.html<br/>Leaflet · GitHub Pages]
+```
 ## Project Overview
 
 This project demonstrates an automated workflow for acquiring, inspecting, validating, and visualizing geospatial data using Python and open-source GIS technologies.
@@ -91,9 +117,10 @@ Some local data and reporting directories are intentionally excluded from versio
 
 ## Installation and Execution
 
-Clone the repository:
+Clone the repository to a local folder such as `C:\dev` (keep projects out of OneDrive-synced folders):
 
 ```powershell
+cd C:\dev
 git clone https://github.com/knightchrism/sjrwmd-geodata-qc.git
 cd sjrwmd-geodata-qc
 ```
@@ -145,9 +172,21 @@ St. Johns River Water Management District public ArcGIS REST Feature Service:
 
 ## Disclaimer
 
+**Demo / testing only &mdash; not authoritative.** Findings are not a survey or legal determination and are not confirmed errors in the source data.
+
+
 This project is an independent technical demonstration and is not affiliated with, endorsed by, or operated by the St. Johns River Water Management District.
 
 The validation rules are illustrative and require review against authoritative data standards and business requirements before operational use.
+
+## Credits
+
+- **Data:** St. Johns River Water Management District, Active Groundwater Monitoring Network public ArcGIS REST Feature Service (link above). Used as published; subject to SJRWMD's terms of use. Basemap &copy; [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL).
+- **Software:** GeoPandas, Shapely, pandas (BSD-3-Clause), Requests (Apache-2.0), [Leaflet](https://leafletjs.com) (BSD-2-Clause). Each keeps its own license.
+
+## License
+
+Code: MIT, see [LICENSE](LICENSE).
 
 ## Future Enhancements
 
