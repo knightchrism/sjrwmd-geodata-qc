@@ -15,3 +15,16 @@ reports/
 
 # VS Code settings
 .vscode/
+
+# Security hardening: secrets, keys and local artifacts
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+credentials*.json
+*.log
+.pytest_cache/

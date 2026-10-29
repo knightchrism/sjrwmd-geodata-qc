@@ -1,5 +1,7 @@
 # SJRWMD GeoData Quality Inspector
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/knightchrism/sjrwmd-geodata-qc/badge)](https://scorecard.dev/viewer/?uri=github.com/knightchrism/sjrwmd-geodata-qc)
+
 **Rule-driven QA/QC for public groundwater-station GIS data &mdash; findings you can filter, inspect and export, with the source data left untouched.**
 
 <p>
